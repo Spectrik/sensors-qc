@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sensor-qc"
+version = "1.0.0"
+description = "Sensor quality control CLI"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+sensor-qc = "sensor_qc.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["sensor_qc*"]

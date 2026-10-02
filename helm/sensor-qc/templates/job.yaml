@@ -1,0 +1,88 @@
+{{- if and (eq .Values.input.mode "pvc") (not .Values.input.existingClaim) }}
+{{- fail "input.existingClaim is required when input.mode=pvc" }}
+{{- end }}
+{{- if and (eq .Values.output.mode "pvc") (not .Values.output.existingClaim) }}
+{{- fail "output.existingClaim is required when output.mode=pvc" }}
+{{- end }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "sensor-qc.name" . }}
+  labels:
+    {{- include "sensor-qc.labels" . | nindent 4 }}
+spec:
+  backoffLimit: {{ .Values.job.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.job.activeDeadlineSeconds }}
+  ttlSecondsAfterFinished: {{ .Values.job.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        {{- include "sensor-qc.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: sensor-qc
+          image: {{ printf "%s:%s" .Values.image.repository .Values.image.tag | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --input
+            {{- if eq .Values.input.mode "sample" }}
+            - /input/sample.log
+            {{- else }}
+            - {{ printf "/input/%s" .Values.input.file | quote }}
+            {{- end }}
+            - --output
+            {{- if eq .Values.output.mode "stdout" }}
+            - "-"
+            {{- else }}
+            - {{ printf "/output/%s" .Values.output.file | quote }}
+            {{- end }}
+          env:
+            - name: TMPDIR
+              value: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: input
+              mountPath: /input
+              readOnly: true
+            - name: scratch
+              mountPath: /tmp
+            {{- if eq .Values.output.mode "pvc" }}
+            - name: output
+              mountPath: /output
+            {{- end }}
+      volumes:
+        - name: input
+          {{- if eq .Values.input.mode "sample" }}
+          configMap:
+            name: {{ include "sensor-qc.name" . }}-input
+          {{- else }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.input.existingClaim | quote }}
+          {{- end }}
+        - name: scratch
+          emptyDir:
+            sizeLimit: {{ .Values.scratch.sizeLimit }}
+        {{- if eq .Values.output.mode "pvc" }}
+        - name: output
+          persistentVolumeClaim:
+            claimName: {{ .Values.output.existingClaim | quote }}
+        {{- end }}

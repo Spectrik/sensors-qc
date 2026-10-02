@@ -1,0 +1,11 @@
+# Existing claims must be populated/provisioned separately.
+input:
+  mode: pvc
+  existingClaim: sensor-input
+  file: batch-001.log
+output:
+  mode: pvc
+  existingClaim: sensor-output
+  file: batch-001.json
+job:
+  activeDeadlineSeconds: 3600

@@ -1,0 +1,55 @@
+name: Verify
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Unit and integration tests
+        run: python -m unittest discover -s tests -v
+
+      - uses: azure/setup-helm@v4.2.0
+        with:
+          version: v3.17.3
+
+      - name: Lint and render Helm modes
+        run: bash scripts/check_helm.sh
+
+      - name: Build and verify non-root container
+        run: |
+          docker build -t sensor-qc:1.0.0 .
+          docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+            -v "$PWD/examples:/input:ro" sensor-qc:1.0.0 \
+            --input /input/sample.log > /tmp/qc-result.json
+          python -c 'import json; assert json.load(open("/tmp/qc-result.json")) == json.load(open("examples/expected.json"))'
+
+      - name: Verify source archive
+        run: python scripts/package.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: source
+          path: sensor-qc.zip
+
+      - name: Package Helm chart
+        run: helm package helm/sensor-qc --destination dist
+
+      - name: Upload Helm chart artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-chart
+          path: dist/*.tgz
+          if-no-files-found: error

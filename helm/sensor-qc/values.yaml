@@ -1,0 +1,30 @@
+image:
+  repository: sensor-qc
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+input:
+  # sample: bundled demo ConfigMap; pvc: an existing claim, mounted read-only.
+  mode: sample
+  existingClaim: ""
+  file: sample.log
+output:
+  # stdout: result available in pod logs; pvc: persistent atomic JSON file.
+  mode: stdout
+  existingClaim: ""
+  file: results.json
+job:
+  backoffLimit: 0
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 3600
+resources:
+  requests:
+    cpu: 100m
+    memory: 64Mi
+    ephemeral-storage: 32Mi
+  limits:
+    cpu: "1"
+    memory: 256Mi
+    ephemeral-storage: 2Gi
+scratch:
+  sizeLimit: 1Gi

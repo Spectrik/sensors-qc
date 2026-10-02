@@ -1,0 +1,11 @@
+{{- if eq .Values.input.mode "sample" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sensor-qc.name" . }}-input
+  labels:
+    {{- include "sensor-qc.labels" . | nindent 4 }}
+data:
+  sample.log: |
+{{ .Files.Get "files/sample.log" | indent 4 }}
+{{- end }}
